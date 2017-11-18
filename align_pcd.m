@@ -31,11 +31,36 @@ remainPtCloud = select(remainPtCloud,outlierIndices);
 ptCloudB = pcdenoise(remainPtCloud);
 
 
+% figure
+% pcshow(ptAlign);
+% figure
+% pcshow(plane1);
+% figure
+% pcshow(plane2);
+% figure;
+% pcshow(ptCloudB);
+
+%===============================================Wall height extraction
+
+height_start = floor(ptCloudB.ZLimits(1));
+height_end = floor(ptCloudB.ZLimits(2));
+
+height_count = (height_start:1:height_end)';
+height_count(:,2) = 0;
+
+for i = 1 : ptCloudB.Count
+    line_1 = floor(ptCloudB.Location(i,3)) - height_start + 1;
+    height_count(line_1, 2) = height_count(line_1, 2)+1;
+end
+[temp,maxHeight] = max(height_count);
+pointWall = [];
+for i = 1 : ptCloudB.Count
+    if floor(ptCloudB.Location(i,3)) - height_start + 1 == maxHeight(2)
+        pointWall = [pointWall; ptCloudB.Location(i,1:3)];
+    end
+end
+ptWall = pointCloud(pointWall);
+
 figure
-pcshow(ptAlign);
-figure
-pcshow(plane1);
-figure
-pcshow(plane2);
-figure;
-pcshow(ptCloudB);
+pcshow(ptWall);
+
