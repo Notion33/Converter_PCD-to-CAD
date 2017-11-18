@@ -17,3 +17,25 @@ ptAlign = pointCloud(XYZnew);
 
 % https://kr.mathworks.com/matlabcentral/answers/232828-how-to-fit-a-plane-to-my-point-cloud-data-and-rotate-it-so-that-the-plane-is-parallel-to-the-x-y-pla
 % https://kr.mathworks.com/matlabcentral/fileexchange/30864-3d-rotation-about-shifted-axis
+
+
+maxDistance = 0.3;
+referenceVector = [0,0,1];
+maxAngularDistance = 5;
+[model1,inlierIndices,outlierIndices] = pcfitplane(ptAlign,maxDistance,referenceVector,maxAngularDistance);
+plane1 = select(ptAlign,inlierIndices);
+remainPtCloud = select(ptAlign,outlierIndices);
+[model2,inlierIndices,outlierIndices] = pcfitplane(remainPtCloud,maxDistance,referenceVector,maxAngularDistance);
+plane2 = select(remainPtCloud,inlierIndices);
+remainPtCloud = select(remainPtCloud,outlierIndices);
+ptCloudB = pcdenoise(remainPtCloud);
+
+
+figure
+pcshow(ptAlign);
+figure
+pcshow(plane1);
+figure
+pcshow(plane2);
+figure;
+pcshow(ptCloudB);
