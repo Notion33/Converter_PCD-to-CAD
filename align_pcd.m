@@ -2,6 +2,7 @@
 %%=========================================================================
 
 wallLayerHeight = 3;
+scale = 16;
 
 %%=========================================================================
 
@@ -26,52 +27,65 @@ ptAlign = pointCloud(XYZnew);
 % https://kr.mathworks.com/matlabcentral/answers/232828-how-to-fit-a-plane-to-my-point-cloud-data-and-rotate-it-so-that-the-plane-is-parallel-to-the-x-y-pla
 % https://kr.mathworks.com/matlabcentral/fileexchange/30864-3d-rotation-about-shifted-axis
 
-
-maxDistance = 0.3;
-referenceVector = [0,0,1];
-maxAngularDistance = 5;
-[model1,inlierIndices,outlierIndices] = pcfitplane(ptAlign,maxDistance,referenceVector,maxAngularDistance);
-plane1 = select(ptAlign,inlierIndices);
-remainPtCloud = select(ptAlign,outlierIndices);
-[model2,inlierIndices,outlierIndices] = pcfitplane(remainPtCloud,maxDistance,referenceVector,maxAngularDistance);
-plane2 = select(remainPtCloud,inlierIndices);
-remainPtCloud = select(remainPtCloud,outlierIndices);
-ptCloudB = pcdenoise(remainPtCloud);
-
-
-% figure
-% pcshow(ptAlign);
-% figure
-% pcshow(plane1);
-% figure
-% pcshow(plane2);
-% figure;
-% pcshow(ptCloudB);
-
 %===============================================Wall height extraction
 
-height_start = floor(ptCloudB.ZLimits(1));
-height_end = floor(ptCloudB.ZLimits(2));
+height_start = floor(ptAlign.ZLimits(1)*10)/10;
+height_end = floor(ptAlign.ZLimits(2)*10)/10;
 
-height_count = (height_start:1:height_end)';
+height_count = (height_start:0.1:height_end)';
 height_count(:,2) = 0;
 
-for i = 1 : ptCloudB.Count
-    line_1 = floor(ptCloudB.Location(i,3)) - height_start + 1;
+for i = 1 : ptAlign.Count
+    line_1 = floor(floor(ptAlign.Location(i,3)*10) - height_start*10 + 1);         %소숫점 1번째에서 내림 (0.1m 단위로 height 체킹위함)
     height_count(line_1, 2) = height_count(line_1, 2)+1;
 end
-[temp,maxHeight] = max(height_count);
-pointWall = [];
 
-wallLayerHeight = abs((wallLayerHeight + 1)/2);
+% [temp,maxHeight] = max(height_count);
+% pointWall = [];
+% 
+% wallLayerHeight = abs((wallLayerHeight + 1)/2);
+% 
+% for i = 1 : ptCloudB.Count
+%     if floor(ptCloudB.Location(i,3)) - height_start + 1 > maxHeight(2) - wallLayerHeight && floor(ptCloudB.Location(i,3)) - height_start + 1 < maxHeight(2) + wallLayerHeight
+%         pointWall = [pointWall; ptCloudB.Location(i,1:3)];
+%     end
+% end
+% ptWall = pointCloud(pointWall);
+% 
+% figure
+% pcshow(ptWall);
 
-for i = 1 : ptCloudB.Count
-    if floor(ptCloudB.Location(i,3)) - height_start + 1 > maxHeight(2) - wallLayerHeight && floor(ptCloudB.Location(i,3)) - height_start + 1 < maxHeight(2) + wallLayerHeight
-        pointWall = [pointWall; ptCloudB.Location(i,1:3)];
-    end
-end
-ptWall = pointCloud(pointWall);
+%===============================================2D Projection
 
-figure
-pcshow(ptWall);
-
+% px=pointWall(:,1);
+% py=pointWall(:,2);
+% 
+% Ir = max(py)-min(py);
+% Ic = max(px)-min(px);
+% numr = round(Ir * scale);
+% numc = round(Ic * scale);
+% 
+% fprintf('2. pt2image start (2/4)\n')
+% % grid construction
+% tol = 10*2;
+% xl = min(px); xr = max(px); yl = min(py); yr = max(py);
+% xx = linspace(xl,xr,numc); yy = linspace(yl,yr,numr);
+% [X,Y] = meshgrid(xx,yy);
+% grid_centers = [X(:),Y(:)];
+% 
+% % classification
+% class = knnsearch(grid_centers,[px,py]); 
+% 
+% % data_grouping
+% class_stat = zeros(numr*numc, 1);
+% class_stat(class) = 1;
+% 
+% % 2D reshaping
+% class_stat_M = reshape(class_stat, size(X)); 
+% img = 1-class_stat_M(end:-1:1,:);
+% 
+% rstimg = ones(numr+tol, numc+tol);
+% rstimg((tol/2)+1:(tol/2)+numr,(tol/2)+1:(tol/2)+numc) = img;
+% 
+% figure
+% imshow(rstimg)
