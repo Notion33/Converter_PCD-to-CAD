@@ -1,3 +1,11 @@
+%%초기 변수 선언
+%%=========================================================================
+
+wallLayerHeight = 3;
+
+%%=========================================================================
+
+
 ptCloud = pcread('j_engineering_all.pcd');
 
 XYZ=ptCloud.Location;
@@ -54,8 +62,11 @@ for i = 1 : ptCloudB.Count
 end
 [temp,maxHeight] = max(height_count);
 pointWall = [];
+
+wallLayerHeight = abs((wallLayerHeight + 1)/2);
+
 for i = 1 : ptCloudB.Count
-    if floor(ptCloudB.Location(i,3)) - height_start + 1 == maxHeight(2)
+    if floor(ptCloudB.Location(i,3)) - height_start + 1 > maxHeight(2) - wallLayerHeight && floor(ptCloudB.Location(i,3)) - height_start + 1 < maxHeight(2) + wallLayerHeight
         pointWall = [pointWall; ptCloudB.Location(i,1:3)];
     end
 end
