@@ -93,3 +93,33 @@ rstimg((tol/2)+1:(tol/2)+numr,(tol/2)+1:(tol/2)+numc) = img;
 
 figure
 imshow(rstimg)
+
+%% edge_line start
+
+readImg = rstimg;
+
+fprintf('3. edge_line start (3/4)\n')
+[~, threshold] = edge(readImg, 'Sobel');
+fudgeFactor = .5;
+BWs = edge(readImg,'Sobel', threshold * fudgeFactor);
+se90 = strel('line', 10, 90);
+se0 = strel('line', 10, 0);
+BWsdilA = imdilate(BWs, [se90 se0]);
+BWsfill = imfill(BWsdilA,'holes');
+BWsfillA = imerode(BWsfill, [se90 se0]);
+
+set90 = strel('line', 30, 90);
+set0 = strel('line', 30, 0);
+BWserode = imerode(BWsfillA, [set90 set0]);
+BWsarea = bwareaopen(BWserode, 1000);
+BWsdilB = imdilate(BWsarea, [set90 set0]);
+
+seD = strel('diamond',3);
+BWfinal = imerode(BWsdilB,seD);
+BWoutline = bwperim(BWfinal);
+
+uint8Image = 255*uint8(readImg)+220;
+uint8Image(BWoutline)=0;
+
+figure(2)
+imshow(uint8Image)
