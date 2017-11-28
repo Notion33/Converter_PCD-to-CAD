@@ -1,22 +1,19 @@
-%%초기 변수 선언
-%%=========================================================================
+%% Initializing
 
+ptCloud = pcread('KITECH_3D_map_data.pcd');
 wallLayerHeight = 3;
 
-%%=========================================================================
 
+%% XY-plane에 PCD Align 시키기
 
-ptCloud = pcread('j_engineering_all.pcd');
-
-XYZ=ptCloud.Location;
-%%plane fit
+XYZ=ptCloud.Location;       %plane fit
 c=mean(XYZ,1);
 Pc=bsxfun(@minus,XYZ,c);    
 [~,~,V]=svd(Pc,0);
-n=V(:,end);  %normal
-n=n*sign(dot(n,[0,0,1])); %orientation convention
-%rotate/align with xy-plane
-u=cross(n,[0,0,1]);
+n=V(:,end);                 %normal벡터 계산
+n=n*sign(dot(n,[0,0,1]));   %orientation convention
+
+u=cross(n,[0,0,1]);         %rotate/align with xy-plane
 deg=acosd(dot(n,[0,0,1]));
 XYZnew=AxelRot(XYZ.',deg,u,[0,0,0]).';
 ptAlign = pointCloud(XYZnew);
@@ -25,7 +22,7 @@ ptAlign = pointCloud(XYZnew);
 
 % https://kr.mathworks.com/matlabcentral/answers/232828-how-to-fit-a-plane-to-my-point-cloud-data-and-rotate-it-so-that-the-plane-is-parallel-to-the-x-y-pla
 % https://kr.mathworks.com/matlabcentral/fileexchange/30864-3d-rotation-about-shifted-axis
-
+%% Top & Bottom Plane Extraction
 
 maxDistance = 0.3;
 referenceVector = [0,0,1];
@@ -38,17 +35,16 @@ plane2 = select(remainPtCloud,inlierIndices);
 remainPtCloud = select(remainPtCloud,outlierIndices);
 ptCloudB = pcdenoise(remainPtCloud);
 
+figure
+pcshow(ptAlign);
+figure
+pcshow(plane1);
+figure
+pcshow(plane2);
+figure;
+pcshow(ptCloudB);
 
-% figure
-% pcshow(ptAlign);
-% figure
-% pcshow(plane1);
-% figure
-% pcshow(plane2);
-% figure;
-% pcshow(ptCloudB);
-
-%===============================================Wall height extraction
+%% Wall height extraction
 
 height_start = floor(ptCloudB.ZLimits(1));
 height_end = floor(ptCloudB.ZLimits(2));
