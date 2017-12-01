@@ -3,12 +3,11 @@
 % 2. Top Bottom range searching
 % 3. Top Bottom plane extraction
 % 4. Wall Extraction (Wall range내에서 최대 직선을 갖는 range extraciton)
-% 5. 2d projection
-% 6. 2d preprocessing
-% 7. Canny edge extraction
-% 8. Curve extraction
-% 9. Line fitting
-% 10. Converting to dwg file
+% 5. 2D projection
+% 6. Image Preprocessing & Edge detection
+% 7. Curve extraction
+% 8. Line fitting
+% 9. Converting to dwg file
 
 %% Initializing
 
@@ -17,6 +16,7 @@ scale = 16;
 ptCloud = pcread('j_engineering_all.pcd');
 
 %% XY-plane에 PCD Align 시키기
+fprintf('1. PCD alignment (1/9)\n');
 
 %plane fit
 XYZ=ptCloud.Location;
@@ -44,8 +44,9 @@ ptAlign = pointCloud(XYZnew);
 
 pcwrite(ptAlign,'central_plaza.pcd','Encoding','ascii');
 
-%% Wall height extraction
-fprintf('1. Wall extraction start (1/4)\n');
+%% Top Bottom range searching
+fprintf('2. Top Bottom range searching (2/9)\n');
+
 height_start = floor(ptAlign.ZLimits(1)*10)/10;
 height_end = floor(ptAlign.ZLimits(2)*10)/10;
 
@@ -79,6 +80,14 @@ if first_maxHeight > second_maxHeight
     [second_maxHeight, first_maxHeight] = deal(first_maxHeight, second_maxHeight);
 end
 
+fprintf('3. Top Bottom plane extraction (3/9)\n');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 이 부분에 top & bottom extraction (RANSAC이용) 코드 들어야가 함
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+fprintf('4. Wall Extraction (4/9)\n');
+
 pointWall = zeros(ptAlign.Count,3);
 j = 1;
 
@@ -103,7 +112,7 @@ Ic = max(px)-min(px);
 numr = round(Ir * scale);
 numc = round(Ic * scale);
 
-fprintf('2. pt2image start (2/4)\n')
+fprintf('5. 2D projection (5/9)\n');
 % grid construction
 tol = 10*2;
 xl = min(px); xr = max(px); yl = min(py); yr = max(py);
@@ -125,33 +134,19 @@ img = 1-class_stat_M(end:-1:1,:);
 rstimg = ones(numr+tol, numc+tol);
 rstimg((tol/2)+1:(tol/2)+numr,(tol/2)+1:(tol/2)+numc) = img;
 
-figure
-imshow(rstimg)
+% figure
+% imshow(rstimg)
 
 %% edge_line start
 
-fprintf('3. edge_line start (3/4)\n')
-[~, threshold] = edge(rstimg, 'Sobel');
-fudgeFactor = .5;
-BWs = edge(rstimg,'Sobel', threshold * fudgeFactor);
-se90 = strel('line', 10, 90);
-se0 = strel('line', 10, 0);
-BWsdilA = imdilate(BWs, [se90 se0]);
-BWsfill = imfill(BWsdilA,'holes');
-BWsfillA = imerode(BWsfill, [se90 se0]);
+fprintf('6. Image Preprocessing & Edge detection (6/9)\n');
 
-set90 = strel('line', 30, 90);
-set0 = strel('line', 30, 0);
-BWserode = imerode(BWsfillA, [set90 set0]);
-BWsarea = bwareaopen(BWserode, 1000);
-BWsdilB = imdilate(BWsarea, [set90 set0]);
+img_edge = bwmorph(rstimg,'thin');
+% afterOpening = imopen(gpuArray(img_edge),se);
 
-seD = strel('diamond',3);
-BWfinal = imerode(BWsdilB,seD);
-BWoutline = bwperim(BWfinal);
-
-uint8Image = 255*uint8(rstimg)+220;
-uint8Image(BWoutline)=0;
-
+se = strel('square',2);
+img_edge = imclose(img_edge,se);
+img_edge = edge(img_edge, 'log');
+img_edge = bwareaopen(img_edge, 30);
 figure
-imshow(uint8Image)
+imshow(img_edge)
