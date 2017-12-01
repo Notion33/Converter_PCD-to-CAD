@@ -1,6 +1,6 @@
 %% Initializing
 
-Wall_Offset = 0.3;
+Wall_Offset = 0.2;
 scale = 16;
 ptCloud = pcread('j_engineering_all.pcd');
 
@@ -30,8 +30,10 @@ ptAlign = pointCloud(XYZnew);
 % https://kr.mathworks.com/matlabcentral/answers/232828-how-to-fit-a-plane-to-my-point-cloud-data-and-rotate-it-so-that-the-plane-is-parallel-to-the-x-y-pla
 % https://kr.mathworks.com/matlabcentral/fileexchange/30864-3d-rotation-about-shifted-axis
 
-%% Wall height extraction
+pcwrite(ptAlign,'central_plaza.pcd','Encoding','ascii');
 
+%% Wall height extraction
+fprintf('1. Wall extraction start (1/4)\n');
 height_start = floor(ptAlign.ZLimits(1)*10)/10;
 height_end = floor(ptAlign.ZLimits(2)*10)/10;
 
@@ -39,25 +41,45 @@ height_count = (height_start:0.1:height_end)';
 height_count(:,2) = 0;
 
 for i = 1 : ptAlign.Count
-    line_1 = floor(floor(ptAlign.Location(i,3)*10) - height_start*10 + 1);         %소숫점 1번째에서 내림 (0.1m 단위로 height 체킹위함)
+    line_1 = floor(floor(ptAlign.Location(i,3)*10) - height_start*10 + 1);  %소숫점 1번째에서 내림 (0.1m 단위로 height 체킹위함)
     height_count(line_1, 2) = height_count(line_1, 2)+1;
 end
 
-[temp,first_maxHeight] = max(height_count);                                     % Z height내 첫번째 두번째 최댓값 찾기
-height_count(first_maxHeight(2),:) = [];
-[temp,second_maxHeight] = max(height_count);
-height_count(second_maxHeight(2),:) = [];
+windowSize = 3;                                                             % windowsize 3으로 Average filter 돌리기
+height_count = filter((1/windowSize)*ones(1,windowSize),1,height_count);
 
-pointWall = [];
+% height_count_diff = diff(height_count);                                     % 1차 미분 적용
+% height_count_diff = [0 0 ; height_count_diff];
 
-for i = 1 : ptCloudB.Count
-    if floor(ptCloudB.Location(i,3)) - height_start > first_maxHeight(2)/10 + Wall_Offset && floor(ptCloudB.Location(i,3)) - height_start < second_maxHeight(2)/10 - Wall_Offset
-        pointWall = [pointWall; ptCloudB.Location(i,1:3)];
+[pks,locs] = findpeaks((height_count(:,2)'));                               % Local maximum 찾기
+pks = pks';
+locs = locs';
+local_max_height = [locs pks];
+
+[~,maxHeight_index] = max(local_max_height);                                    % Local maximum내 첫번째 두번째 최댓값 찾기
+first_maxHeight = height_count(local_max_height(maxHeight_index(1,2),1),1);
+local_max_height(maxHeight_index(2), : ) = [0 0];
+[~,maxHeight_index] = max(local_max_height);
+second_maxHeight = height_count(local_max_height(maxHeight_index(1,2),1),1);
+local_max_height(maxHeight_index(2), : ) = [0 0];
+
+if first_maxHeight > second_maxHeight
+    [second_maxHeight, first_maxHeight] = deal(first_maxHeight, second_maxHeight);
+end
+
+pointWall = zeros(ptAlign.Count,3);
+j = 1;
+
+for i = 1 : ptAlign.Count
+    if ptAlign.Location(i,3) > first_maxHeight + Wall_Offset && ptAlign.Location(i,3) < second_maxHeight - Wall_Offset
+        pointWall(j,1:3) = ptAlign.Location(i,1:3);
+        j = j+1;
     end
 end
 ptWall = pointCloud(pointWall);
-% figure
-% pcshow(ptWall);
+
+figure
+pcshow(ptWall);
 
 %% 2D Projection
 
@@ -96,12 +118,10 @@ imshow(rstimg)
 
 %% edge_line start
 
-readImg = rstimg;
-
 fprintf('3. edge_line start (3/4)\n')
-[~, threshold] = edge(readImg, 'Sobel');
+[~, threshold] = edge(rstimg, 'Sobel');
 fudgeFactor = .5;
-BWs = edge(readImg,'Sobel', threshold * fudgeFactor);
+BWs = edge(rstimg,'Sobel', threshold * fudgeFactor);
 se90 = strel('line', 10, 90);
 se0 = strel('line', 10, 0);
 BWsdilA = imdilate(BWs, [se90 se0]);
@@ -118,8 +138,8 @@ seD = strel('diamond',3);
 BWfinal = imerode(BWsdilB,seD);
 BWoutline = bwperim(BWfinal);
 
-uint8Image = 255*uint8(readImg)+220;
+uint8Image = 255*uint8(rstimg)+220;
 uint8Image(BWoutline)=0;
 
-figure(2)
+figure
 imshow(uint8Image)
