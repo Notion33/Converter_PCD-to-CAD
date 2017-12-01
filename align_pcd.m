@@ -1,3 +1,15 @@
+%% Sequence description
+% 1. PCD align
+% 2. Top Bottom range searching
+% 3. Top Bottom plane extraction
+% 4. Wall Extraction (Wall range내에서 최대 직선을 갖는 range extraciton)
+% 5. 2d projection
+% 6. 2d preprocessing
+% 7. Canny edge extraction
+% 8. Curve extraction
+% 9. Line fitting
+% 10. Converting to dwg file
+
 %% Initializing
 
 Wall_Offset = 0.2;
@@ -78,8 +90,8 @@ for i = 1 : ptAlign.Count
 end
 ptWall = pointCloud(pointWall);
 
-figure
-pcshow(ptWall);
+% figure
+% pcshow(ptWall);
 
 %% 2D Projection
 
