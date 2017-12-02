@@ -13,7 +13,8 @@
 
 Wall_Offset = 0.2;
 scale = 16;
-ptCloud = pcread('j_engineering_all.pcd');
+% ptCloud = pcread('j_engineering_all.pcd');
+ptCloud = pcread('smallhouse.pcd');
 
 %% XY-plane에 PCD Align 시키기
 fprintf('1. PCD alignment (1/9)\n');
@@ -42,8 +43,6 @@ ptAlign = pointCloud(XYZnew);
 % https://kr.mathworks.com/matlabcentral/answers/232828-how-to-fit-a-plane-to-my-point-cloud-data-and-rotate-it-so-that-the-plane-is-parallel-to-the-x-y-pla
 % https://kr.mathworks.com/matlabcentral/fileexchange/30864-3d-rotation-about-shifted-axis
 
-pcwrite(ptAlign,'central_plaza.pcd','Encoding','ascii');
-
 %% Top Bottom range searching
 fprintf('2. Top Bottom range searching (2/9)\n');
 
@@ -69,12 +68,12 @@ pks = pks';
 locs = locs';
 local_max_height = [locs pks];
 
-[~,maxHeight_index] = max(local_max_height);                                    % Local maximum내 첫번째 두번째 최댓값 찾기
-first_maxHeight = height_count(local_max_height(maxHeight_index(1,2),1),1);
-local_max_height(maxHeight_index(2), : ) = [0 0];
-[~,maxHeight_index] = max(local_max_height);
-second_maxHeight = height_count(local_max_height(maxHeight_index(1,2),1),1);
-local_max_height(maxHeight_index(2), : ) = [0 0];
+[~,maxHeight_index] = max(local_max_height(:,2));                                    % Local maximum내 첫번째 두번째 최댓값 찾기
+first_maxHeight = height_count(local_max_height(maxHeight_index,1),1);
+local_max_height(maxHeight_index, : ) = [0 0];
+[~,maxHeight_index] = max(local_max_height(:,2));
+second_maxHeight = height_count(local_max_height(maxHeight_index,1),1);
+local_max_height(maxHeight_index, : ) = [0 0];
 
 if first_maxHeight > second_maxHeight
     [second_maxHeight, first_maxHeight] = deal(first_maxHeight, second_maxHeight);
@@ -84,6 +83,25 @@ fprintf('3. Top Bottom plane extraction (3/9)\n');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 이 부분에 top & bottom extraction (RANSAC이용) 코드 들어야가 함
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+wall_range_count = height_count(first_maxHeight:second_maxHeight,:);
+[wall_range_index , aaa] = min(wall_range_count(:,2));
+
+
+%increasing searching
+
+% wall_mean = wall_range_index
+% 
+% while true
+%     %종료조건
+%     
+% end
+% 
+% for i = first_maxHeight : second_maxHeight
+%     
+% end
+
+
 
 
 fprintf('4. Wall Extraction (4/9)\n');
@@ -99,8 +117,8 @@ for i = 1 : ptAlign.Count
 end
 ptWall = pointCloud(pointWall);
 
-% figure
-% pcshow(ptWall);
+figure
+pcshow(ptWall);
 
 %% 2D Projection
 
@@ -134,19 +152,71 @@ img = 1-class_stat_M(end:-1:1,:);
 rstimg = ones(numr+tol, numc+tol);
 rstimg((tol/2)+1:(tol/2)+numr,(tol/2)+1:(tol/2)+numc) = img;
 
-% figure
-% imshow(rstimg)
+figure
+imshow(rstimg)
 
 %% edge_line start
 
 fprintf('6. Image Preprocessing & Edge detection (6/9)\n');
 
 img_edge = bwmorph(rstimg,'thin');
+img_edge(1,:) = 1;
+img_edge(end,:) = 1;
+img_edge(:,1) = 1;
+img_edge(:,end) = 1;
 % afterOpening = imopen(gpuArray(img_edge),se);
-
-se = strel('square',2);
-img_edge = imclose(img_edge,se);
-img_edge = edge(img_edge, 'log');
-img_edge = bwareaopen(img_edge, 30);
 figure
 imshow(img_edge)
+
+img_edge = edge(img_edge, 'Canny');
+figure
+imshow(img_edge)
+img_edge = bwareaopen(img_edge, 30);
+img_edge = bwmorph(img_edge,'skel',Inf);
+figure
+imshow(img_edge)
+se = strel('square',5);
+img_edge = imclose(img_edge,se);
+img_edge = imfill(img_edge,'holes');
+% img_edge = bwmorph(img_edge,'skel',Inf);
+figure
+imshow(img_edge)
+
+
+%%
+
+% BWoutline_FL = flipud(img_edge);
+% [liney, linex]=find((BWoutline_FL)==1);
+% contourline = bwtraceboundary((BWoutline_FL), [liney(1), linex(1)],'NW');
+% contourline = contourline/scale;
+% figure(3)
+% plot(contourline(:,2),contourline(:,1),'r')
+
+
+% [H,T,R] = hough(img_edge);
+% imshow(H,[],'XData',T,'YData',R,...
+%             'InitialMagnification','fit');
+% xlabel('\theta'), ylabel('\rho');
+% axis on, axis normal, hold on;
+% 
+% P  = houghpeaks(H,10,'threshold',ceil(0.3*max(H(:))));
+% x = T(P(:,2)); y = R(P(:,1));
+% plot(x,y,'s','color','white');
+% lines = houghlines(img_edge,T,R,P,'FillGap',10,'MinLength',5);
+% figure, imshow(img_edge), hold on
+% max_len = 0;
+% for k = 1:length(lines)
+%    xy = [lines(k).point1; lines(k).point2];
+%    plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
+% 
+%    % Plot beginnings and ends of lines
+%    plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
+%    plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
+% 
+%    % Determine the endpoints of the longest line segment
+%    len = norm(lines(k).point1 - lines(k).point2);
+%    if ( len > max_len)
+%       max_len = len;
+%       xy_long = xy;
+%    end
+% end
