@@ -13,8 +13,8 @@
 
 Wall_Offset = 1;
 scale = 16;
-ptCloud = pcread('j_engineering_all.pcd');
-% ptCloud = pcread('smallhouse.pcd');
+% ptCloud = pcread('j_engineering_all.pcd');
+ptCloud = pcread('smallhouse.pcd');
 % ptCloud = pcread('central_plaza.pcd');
 
 %% XY-plane에 PCD Align 시키기
@@ -84,40 +84,69 @@ if first_maxHeight_index > second_maxHeight_index
 end
 
 fprintf('3. Top Bottom plane extraction (3/9)\n');
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 이 부분에 top & bottom extraction (RANSAC이용) 코드 들어야가 함
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+maxDistance = 1.5;
+referenceVector = [0,0,1];
+maxAngularDistance = 5;
+[model1,inlierIndices,outlierIndices] = pcfitplane(ptAlign,maxDistance,referenceVector,maxAngularDistance);
+plane1 = select(ptAlign,inlierIndices);
+remainPtCloud = select(ptAlign,outlierIndices);
+[model2,inlierIndices,outlierIndices] = pcfitplane(remainPtCloud,maxDistance,referenceVector,maxAngularDistance);
+plane2 = select(remainPtCloud,inlierIndices);
+remainPtCloud = select(remainPtCloud,outlierIndices);
+ptCloudB = pcdenoise(remainPtCloud);
+
+% figure
+% pcshow(ptAlign);
+% figure
+% pcshow(plane1);
+% figure
+% pcshow(plane2);
+% figure;
+% pcshow(ptCloudB);
 
 wall_range_count = height_count(first_maxHeight_index:second_maxHeight_index,:);
 [~, wall_center_index] = min(wall_range_count(:,2));
 
-%increasing searching
-
 wall_mean = wall_range_count(wall_center_index,2);
-wall_upper_index = wall_center_index;
-wall_lower_index = wall_center_index;
 
-for i = wall_center_index : 1 : length(wall_range_count)
-    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
-        wall_upper_index = i;
-        break;
-    end
-end
-for i = wall_center_index : -1 : 1
-    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
-        wall_lower_index = i;
-        break;
-    end
-end
+topbottom_range = [plane1.ZLimits plane2.ZLimits];
+[topbottom_min_value,topbottom_min_index] = min(topbottom_range);
+wall_lower_value = topbottom_min_value;
+topbottom_range(topbottom_min_index) = Inf;
+[topbottom_min_value,topbottom_min_index] = min(topbottom_range);
+wall_lower_value = (wall_lower_value + topbottom_min_value)/2;
+topbottom_range(topbottom_min_index) = Inf;
+[topbottom_min_value,topbottom_min_index] = min(topbottom_range);
+wall_upper_value = topbottom_min_value;
+topbottom_range(topbottom_min_index) = Inf;
+[topbottom_min_value,topbottom_min_index] = min(topbottom_range);
+wall_upper_value = (wall_upper_value + topbottom_min_value)/2;
+topbottom_range(topbottom_min_index) = Inf;
+
+% wall_upper_index = wall_center_index;
+% wall_lower_index = wall_center_index;
+
+% for i = wall_center_index : 1 : length(wall_range_count)
+%     if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.1
+%         wall_upper_index = i;
+%         break;
+%     end
+% end
+% for i = wall_center_index : -1 : 1
+%     if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.1
+%         wall_lower_index = i;
+%         break;
+%     end
+% end
 
 fprintf('4. Wall Extraction (4/9)\n');
 
-pointWall = zeros(ptAlign.Count,3);
+pointWall = zeros(ptCloudB.Count,3);
 j = 1;
 
-for i = 1 : ptAlign.Count
-    if ptAlign.Location(i,3) > wall_range_count(wall_lower_index,1) && ptAlign.Location(i,3) < wall_range_count(wall_upper_index,1)
-        pointWall(j,1:3) = ptAlign.Location(i,1:3);
+for i = 1 : ptCloudB.Count
+    if ptCloudB.Location(i,3) > wall_lower_value && ptCloudB.Location(i,3) < wall_upper_value
+        pointWall(j,1:3) = ptCloudB.Location(i,1:3);
         j = j+1;
     end
 end
