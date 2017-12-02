@@ -11,10 +11,11 @@
 
 %% Initializing
 
-Wall_Offset = 0.2;
+Wall_Offset = 1;
 scale = 16;
-% ptCloud = pcread('j_engineering_all.pcd');
-ptCloud = pcread('smallhouse.pcd');
+ptCloud = pcread('j_engineering_all.pcd');
+% ptCloud = pcread('smallhouse.pcd');
+% ptCloud = pcread('central_plaza.pcd');
 
 %% XY-plane에 PCD Align 시키기
 fprintf('1. PCD alignment (1/9)\n');
@@ -69,14 +70,17 @@ locs = locs';
 local_max_height = [locs pks];
 
 [~,maxHeight_index] = max(local_max_height(:,2));                                    % Local maximum내 첫번째 두번째 최댓값 찾기
-first_maxHeight = height_count(local_max_height(maxHeight_index,1),1);
+first_maxHeight_index = local_max_height(maxHeight_index,1);
+first_maxHeight = height_count(first_maxHeight_index,1);
 local_max_height(maxHeight_index, : ) = [0 0];
 [~,maxHeight_index] = max(local_max_height(:,2));
-second_maxHeight = height_count(local_max_height(maxHeight_index,1),1);
+second_maxHeight_index = local_max_height(maxHeight_index,1);
+second_maxHeight = height_count(second_maxHeight_index,1);
 local_max_height(maxHeight_index, : ) = [0 0];
 
-if first_maxHeight > second_maxHeight
+if first_maxHeight_index > second_maxHeight_index
     [second_maxHeight, first_maxHeight] = deal(first_maxHeight, second_maxHeight);
+    [second_maxHeight_index, first_maxHeight_index] = deal(first_maxHeight_index, second_maxHeight_index);
 end
 
 fprintf('3. Top Bottom plane extraction (3/9)\n');
@@ -84,25 +88,27 @@ fprintf('3. Top Bottom plane extraction (3/9)\n');
 % 이 부분에 top & bottom extraction (RANSAC이용) 코드 들어야가 함
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-wall_range_count = height_count(first_maxHeight:second_maxHeight,:);
-[wall_range_index , aaa] = min(wall_range_count(:,2));
-
+wall_range_count = height_count(first_maxHeight_index:second_maxHeight_index,:);
+[~, wall_center_index] = min(wall_range_count(:,2));
 
 %increasing searching
 
-% wall_mean = wall_range_index
-% 
-% while true
-%     %종료조건
-%     
-% end
-% 
-% for i = first_maxHeight : second_maxHeight
-%     
-% end
+wall_mean = wall_range_count(wall_center_index,2);
+wall_upper_index = wall_center_index;
+wall_lower_index = wall_center_index;
 
-
-
+for i = wall_center_index : 1 : length(wall_range_count)
+    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
+        wall_upper_index = i;
+        break;
+    end
+end
+for i = wall_center_index : -1 : 1
+    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
+        wall_lower_index = i;
+        break;
+    end
+end
 
 fprintf('4. Wall Extraction (4/9)\n');
 
@@ -110,11 +116,12 @@ pointWall = zeros(ptAlign.Count,3);
 j = 1;
 
 for i = 1 : ptAlign.Count
-    if ptAlign.Location(i,3) > first_maxHeight + Wall_Offset && ptAlign.Location(i,3) < second_maxHeight - Wall_Offset
+    if ptAlign.Location(i,3) > wall_range_count(wall_lower_index,1) && ptAlign.Location(i,3) < wall_range_count(wall_upper_index,1)
         pointWall(j,1:3) = ptAlign.Location(i,1:3);
         j = j+1;
     end
 end
+
 ptWall = pointCloud(pointWall);
 
 figure
