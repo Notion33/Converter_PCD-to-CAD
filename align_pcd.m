@@ -10,11 +10,17 @@
 
 %% Initializing
 
+clc;
+clear all;
+close all;
+
 Wall_Offset = 1;
 scale = 16;
 % ptCloud = pcread('j_engineering_all.pcd');
 ptCloud = pcread('smallhouse.pcd');
 % ptCloud = pcread('central_plaza.pcd');
+
+
 
 %% XY-plane에 PCD Align 시키기
 fprintf('1. PCD alignment (1/9)\n');
@@ -194,8 +200,8 @@ img = 1-class_stat_M(end:-1:1,:);
 rstimg = ones(numr+tol, numc+tol);
 rstimg((tol/2)+1:(tol/2)+numr,(tol/2)+1:(tol/2)+numc) = img;
 
-figure
-imshow(rstimg)
+% figure
+% imshow(rstimg)
 
 %% edge_line start
 
@@ -207,17 +213,19 @@ img_edge(end,:) = 1;
 img_edge(:,1) = 1;
 img_edge(:,end) = 1;
 % afterOpening = imopen(gpuArray(img_edge),se);
+
 % se = strel('square',3);
 % img_edge = imclose(img_edge,se);
 img_edge = imcomplement(img_edge);
 img_edge = imfill(img_edge,'holes');
-figure
-imshow(img_edge)
+% figure
+% imshow(img_edge)
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % img_edge = edge(img_edge, 'log');
 % figure
 % imshow(img_edge)
-% img_edge = bwareaopen(img_edge, 30);
+img_edge = bwareaopen(img_edge, 30);
 % img_edge = bwmorph(img_edge,'skel',Inf);
 % figure
 % imshow(img_edge)
@@ -229,5 +237,45 @@ imshow(img_edge)
 % img_edge = bwmorph(img_edge,'skel',Inf);
 % figure
 % imshow(img_edge)
+
+%% Line fitting start
+
+fprintf('7. Line fitting (7/8)\n');
+
+% Extracting the connected components
+ConnectedLines = bwconncomp(img_edge);
+
+
+%connected components 내 최대 distance를 갖는 점 찾기
+stats = regionprops(ConnectedLines,'PixelList');
+[L, Num] = bwlabel(img_edge);
+global_max_point = struct('distance',zeros(length(stats),2),'location',zeros(length(stats),4));
+
+for j = 1 : length(stats)
+    fprintf('Finding Line edge (%g / %g)\n',j,length(stats));
+    [r, c] = find(L==j);
+    rc = [r c];
+    connected_temp_image = L==j;
+    for i = 1 : length(stats(j).PixelList)
+        statsR = stats(j).PixelList(i,1);
+        statsC = stats(j).PixelList(i,2);
+        D = bwdistgeodesic(connected_temp_image,statsR,statsC);
+        [local_max_distance, farPointR] = max(D,[],2);
+        [local_max_distance, farPointC] = max(local_max_distance);
+        if global_max_point.distance(j) < local_max_distance
+            global_max_point.distance(j) = local_max_distance;
+            global_max_point.location(j,:) = [statsR, statsC, farPointR(farPointC), farPointC];
+        end
+    end
+end
+
+%디버깅용 이미지 띄우기
+uint8Image = 255*uint8(img_edge);
+for i = 1 : length(stats)
+    uint8Image = insertShape(uint8Image,'circle',[global_max_point.location(i,1:2) 5],'LineWidth',2);
+    uint8Image = insertShape(uint8Image,'circle',[global_max_point.location(i,3:4) 5],'LineWidth',2);
+end
+figure
+imshow(uint8Image)
 
 
