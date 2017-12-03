@@ -5,9 +5,8 @@
 % 4. Wall Extraction (Wall range내에서 최대 직선을 갖는 range extraciton)
 % 5. 2D projection
 % 6. Image Preprocessing & Edge detection
-% 7. Curve extraction
-% 8. Line fitting
-% 9. Converting to dwg file
+% 7. Line fitting
+% 8. Converting to dwg file
 
 %% Initializing
 
@@ -94,7 +93,6 @@ remainPtCloud = select(ptAlign,outlierIndices);
 plane2 = select(remainPtCloud,inlierIndices);
 remainPtCloud = select(remainPtCloud,outlierIndices);
 ptCloudB = pcdenoise(remainPtCloud);
-
 % figure
 % pcshow(ptAlign);
 % figure
@@ -103,11 +101,6 @@ ptCloudB = pcdenoise(remainPtCloud);
 % pcshow(plane2);
 % figure;
 % pcshow(ptCloudB);
-
-wall_range_count = height_count(first_maxHeight_index:second_maxHeight_index,:);
-[~, wall_center_index] = min(wall_range_count(:,2));
-
-wall_mean = wall_range_count(wall_center_index,2);
 
 topbottom_range = [plane1.ZLimits plane2.ZLimits];
 [topbottom_min_value,topbottom_min_index] = min(topbottom_range);
@@ -123,21 +116,33 @@ topbottom_range(topbottom_min_index) = Inf;
 wall_upper_value = (wall_upper_value + topbottom_min_value)/2;
 topbottom_range(topbottom_min_index) = Inf;
 
-% wall_upper_index = wall_center_index;
-% wall_lower_index = wall_center_index;
+wall_range_count=[];
 
-% for i = wall_center_index : 1 : length(wall_range_count)
-%     if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.1
-%         wall_upper_index = i;
-%         break;
-%     end
-% end
-% for i = wall_center_index : -1 : 1
-%     if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.1
-%         wall_lower_index = i;
-%         break;
-%     end
-% end
+for i= 1 : length(height_count)
+    if height_count(i,1) > wall_lower_value && height_count(i,1) < wall_upper_value
+        wall_range_count = [wall_range_count; height_count(i,:)];           
+    end
+end
+
+% wall_range_count = height_count(first_maxHeight_index:second_maxHeight_index,:);
+[~, wall_center_index] = min(wall_range_count(:,2));
+
+wall_mean = wall_range_count(wall_center_index,2);
+wall_upper_index = wall_center_index;
+wall_lower_index = wall_center_index;
+
+for i = wall_center_index : 1 : length(wall_range_count)
+    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
+        wall_upper_index = i;
+        break;
+    end
+end
+for i = wall_center_index : -1 : 1
+    if abs(wall_range_count(i,2) - wall_mean) > wall_mean*0.03
+        wall_lower_index = i;
+        break;
+    end
+end
 
 fprintf('4. Wall Extraction (4/9)\n');
 
@@ -145,7 +150,8 @@ pointWall = zeros(ptCloudB.Count,3);
 j = 1;
 
 for i = 1 : ptCloudB.Count
-    if ptCloudB.Location(i,3) > wall_lower_value && ptCloudB.Location(i,3) < wall_upper_value
+%     if ptCloudB.Location(i,3) > wall_lower_value && ptCloudB.Location(i,3) < wall_upper_value
+    if ptCloudB.Location(i,3) > wall_range_count(wall_lower_index,1) && ptCloudB.Location(i,3) < wall_range_count(wall_upper_index,1)
         pointWall(j,1:3) = ptCloudB.Location(i,1:3);
         j = j+1;
     end
@@ -153,8 +159,8 @@ end
 
 ptWall = pointCloud(pointWall);
 
-figure
-pcshow(ptWall);
+% figure
+% pcshow(ptWall);
 
 %% 2D Projection
 
@@ -201,58 +207,27 @@ img_edge(end,:) = 1;
 img_edge(:,1) = 1;
 img_edge(:,end) = 1;
 % afterOpening = imopen(gpuArray(img_edge),se);
-figure
-imshow(img_edge)
-
-img_edge = edge(img_edge, 'Canny');
-figure
-imshow(img_edge)
-img_edge = bwareaopen(img_edge, 30);
-img_edge = bwmorph(img_edge,'skel',Inf);
-figure
-imshow(img_edge)
-se = strel('square',5);
-img_edge = imclose(img_edge,se);
+% se = strel('square',3);
+% img_edge = imclose(img_edge,se);
+img_edge = imcomplement(img_edge);
 img_edge = imfill(img_edge,'holes');
-% img_edge = bwmorph(img_edge,'skel',Inf);
 figure
 imshow(img_edge)
 
+% img_edge = edge(img_edge, 'log');
+% figure
+% imshow(img_edge)
+% img_edge = bwareaopen(img_edge, 30);
+% img_edge = bwmorph(img_edge,'skel',Inf);
+% figure
+% imshow(img_edge)
+% se = strel('square',5);
+% img_edge = imclose(img_edge,se);
+% img_edge = imfill(img_edge,'holes');
+% figure
+% imshow(img_edge)
+% img_edge = bwmorph(img_edge,'skel',Inf);
+% figure
+% imshow(img_edge)
 
-%%
 
-% BWoutline_FL = flipud(img_edge);
-% [liney, linex]=find((BWoutline_FL)==1);
-% contourline = bwtraceboundary((BWoutline_FL), [liney(1), linex(1)],'NW');
-% contourline = contourline/scale;
-% figure(3)
-% plot(contourline(:,2),contourline(:,1),'r')
-
-
-% [H,T,R] = hough(img_edge);
-% imshow(H,[],'XData',T,'YData',R,...
-%             'InitialMagnification','fit');
-% xlabel('\theta'), ylabel('\rho');
-% axis on, axis normal, hold on;
-% 
-% P  = houghpeaks(H,10,'threshold',ceil(0.3*max(H(:))));
-% x = T(P(:,2)); y = R(P(:,1));
-% plot(x,y,'s','color','white');
-% lines = houghlines(img_edge,T,R,P,'FillGap',10,'MinLength',5);
-% figure, imshow(img_edge), hold on
-% max_len = 0;
-% for k = 1:length(lines)
-%    xy = [lines(k).point1; lines(k).point2];
-%    plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
-% 
-%    % Plot beginnings and ends of lines
-%    plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
-%    plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
-% 
-%    % Determine the endpoints of the longest line segment
-%    len = norm(lines(k).point1 - lines(k).point2);
-%    if ( len > max_len)
-%       max_len = len;
-%       xy_long = xy;
-%    end
-% end
