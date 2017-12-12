@@ -1,14 +1,10 @@
-function stats = SplitLine(cc, current_line, max_point_index)
+function SplitLine(cc, current_line, max_point_index)
 % SplitLine(4, 1, 1716)
-% SplitLine(2, 1, 823)
+% SplitLine(4, 2, 1566)
 %% Recursively Split line 
 
 %% ㄱ. Initializing
-
-% load('stats.mat');
-
-global stats
-threshold_dist = 10;
+global stats threshold_dist
 
 %% ㄴ. line AC, CB split
 
@@ -16,7 +12,6 @@ threshold_dist = 10;
 stats(cc).Line(current_line).LineList.EndPoint(2, 1:2) = stats(cc).Line(current_line).LineList.EndPoint(1, 3:4);
 stats(cc).Line(current_line).LineList.EndPoint(1, 3:4) = stats(cc).Line(current_line).PixelList(max_point_index,1:2);
 stats(cc).Line(current_line).LineList.EndPoint(2, 3:4) = stats(cc).Line(current_line).PixelList(max_point_index,1:2);
-
 
 % 첫번째 선분 기울기 계산
 a = stats(cc).Line(current_line).LineList.EndPoint(1,1);
@@ -33,12 +28,11 @@ B = b - A*a;
 
 stats(cc).Line(current_line).LineList.Line(1,:) = [A B];
 
-
-% 디버깅용
-x = stats(cc).PixelList(:,1);
-y = stats(cc).PixelList(:,2);
-scatter(x,y,'filled'); grid on; hold on
-plot(x,B+A*x,'r','LineWidth',2);
+% % 디버깅용
+% x = stats(cc).PixelList(:,1);
+% y = stats(cc).PixelList(:,2);
+% scatter(x,y,'filled'); grid on; hold on
+% plot(x,B+A*x,'r','LineWidth',2);
 
 % 두번째 선분 기울기 계산
 a = stats(cc).Line(current_line).LineList.EndPoint(2,1);
@@ -53,74 +47,63 @@ else
 end
 B = b - A*a;
 
-stats(cc).Line(current_line).LineList.Line(2,:) = [A B];
+% 새로생긴 두번째 선분 기울기,y절편, end point 정보 입력
+new_line = length(stats(cc).Line)+1;
+stats(cc).Line(new_line).LineList.Line(1,:) = [A B];
+stats(cc).Line(new_line).LineList.EndPoint(1,:) = [a b c d];
+stats(cc).Line(current_line).LineList.EndPoint(2,:) = [];
 
-plot(x,B+A*x,'r','LineWidth',2);
+% plot(x,B+A*x,'r','LineWidth',2);
 
 %% ㄷ. 각각 point에서 새로운 선분까지 거리재서 가까운곳에 point 할당
 
-% pixel들 line에 대응시키기전 임시로 할당할 배열 선언
-statsA = [];
-statsB = [];
+% 각각의 point와 line 거리측정용 공간 할당
+stats(cc).PixelList(:,1+2:new_line+2) = zeros(length(stats(cc).PixelList),new_line);
 
-for i = 1 : length(stats(cc).Line(current_line).PixelList)
-    A1 = stats(cc).Line(current_line).LineList.Line(1,1);
-    B1 = stats(cc).Line(current_line).LineList.Line(1,2);
-    A2 = stats(cc).Line(current_line).LineList.Line(2,1);
-    B2 = stats(cc).Line(current_line).LineList.Line(2,2);
-    x = stats(cc).Line(current_line).PixelList(1,1);
-    y = stats(cc).Line(current_line).PixelList(1,2);
-    stats(cc).Line(current_line).PixelList(1,3) = abs(B1+A1*x-y)/sqrt(1+A1*A1);
-    stats(cc).Line(current_line).PixelList(1,4) = abs(B2+A2*x-y)/sqrt(1+A2*A2);
-    [~,min_line_index] = min(stats(cc).Line(current_line).PixelList(1,3:4));
-    if min_line_index == 1      % 첫번째 라인에 할당된 경우
-        statsA = [statsA; stats(cc).Line(current_line).PixelList(1,1:2)];
-    else                        % 두번째 라인에 할당된 경우
-        statsB = [statsB; stats(cc).Line(current_line).PixelList(1,1:2)];
+% 모든 line에 대해 각각의 point의 거리 측정
+for i = 1 : length(stats(cc).Line)
+	A = stats(cc).Line(i).LineList.Line(1,1);
+	B = stats(cc).Line(i).LineList.Line(1,2);
+    for j = 1 : length(stats(cc).PixelList)
+        x = stats(cc).PixelList(j,1);
+        y = stats(cc).PixelList(j,2);
+        stats(cc).PixelList(j,i+2) = abs(B+A*x-y)/sqrt(1+A*A);
     end
-    stats(cc).Line(current_line).PixelList(1,:) = [];
+end
+
+% pixel들 line에 대응시키기전 임시로 할당할 3차원 배열 선언
+temp_stats = [];
+temp_stats = struct('PixelList',cell(new_line, 1));
+
+% 가장 가까운 line으로 점들 재할당
+for i = 1 : length(stats(cc).PixelList)
+        [~,min_line_index] = min(stats(cc).PixelList(i,1+2:length(stats(cc).Line)+2));
+        temp_stats(min_line_index).PixelList = cat(1,temp_stats(min_line_index).PixelList , [stats(cc).PixelList(i,1:2) stats(cc).PixelList(i, min_line_index+2)]);
 end
 
 % stats 새로운 point 추가
+for i = 1 : length(stats(cc).Line)
+    stats(cc).Line(i).PixelList = temp_stats(i).PixelList;
+end
 
-new_line = length(stats(cc).Line)+1;
-
-stats(cc).Line(current_line).PixelList = statsA;
-stats(cc).Line(current_line).PixelList(:,3) = zeros(length(stats(cc).Line(current_line).PixelList(1)),1);
-stats(cc).Line(current_line).PixelList(:,4) = zeros(length(stats(cc).Line(current_line).PixelList(1)),1);
-stats(cc).Line(new_line).PixelList = statsB;
-stats(cc).Line(new_line).PixelList(:,3) = zeros(length(stats(cc).Line(new_line).PixelList(1)),1);
-stats(cc).Line(new_line).PixelList(:,4) = zeros(length(stats(cc).Line(new_line).PixelList(1)),1);
-
-% line list 갱신
-stats(cc).Line(new_line).LineList.Line(1,:) = stats(cc).Line(current_line).LineList.Line(2,:);
-stats(cc).Line(current_line).LineList.Line(2,:) = [];
-stats(cc).Line(new_line).LineList.EndPoint(1,:) = stats(cc).Line(current_line).LineList.EndPoint(2,:);
-stats(cc).Line(current_line).LineList.EndPoint(2,:) = [];
+% 디버깅용 이미지
+x = stats(cc).PixelList(:,1);
+y = stats(cc).PixelList(:,2);
+scatter(x,y,'filled'); grid on; hold on
+for i=1 : length(stats(cc).Line)
+   x = [stats(cc).Line(i).LineList.EndPoint(1) stats(cc).Line(i).LineList.EndPoint(3)];
+   y = [stats(cc).Line(i).LineList.EndPoint(2) stats(cc).Line(i).LineList.EndPoint(4)];
+   line('XData',x,'YData',y)
+   hold on
+end
+hold off
 
 % if 가장먼거리점 거리> threshold이상 일경우 recursive split
-A = stats(cc).Line(current_line).LineList.Line(1,1);
-B = stats(cc).Line(current_line).LineList.Line(1,2);
-for i=1 : length(stats(cc).Line(current_line).PixelList)
-    x = stats(cc).Line(current_line).PixelList(i,1);
-    y = stats(cc).Line(current_line).PixelList(i,2);
-    stats(cc).Line(current_line).PixelList(i,3) = abs(B+A*x-y)/sqrt(1+A*A);
-end
-[max_dist,max_point_index] = max(stats(cc).Line(current_line).PixelList(:,3));
-if max_dist > threshold_dist
-    SplitLine(cc, current_line, max_point_index);
-end
-
-A = stats(cc).Line(new_line).LineList.Line(1,1);
-B = stats(cc).Line(new_line).LineList.Line(1,2);
-for i=1 : length(stats(cc).Line(new_line).PixelList)
-    x = stats(cc).Line(new_line).PixelList(i,1);
-    y = stats(cc).Line(new_line).PixelList(i,2);
-    stats(cc).Line(new_line).PixelList(i,3) = abs(B+A*x-y)/sqrt(1+A*A);
-end
-[max_dist,max_point_index] = max(stats(cc).Line(new_line).PixelList(:,3));
-if max_dist > threshold_dist
-    SplitLine(cc, new_line, max_point_index);
+for i = 1 : length(stats(cc).Line)
+    [max_dist,max_point_index] = max(stats(cc).Line(i).PixelList(:,3));
+    if max_dist > threshold_dist
+        SplitLine(cc, i, max_point_index);
+    end
 end
 
 end
