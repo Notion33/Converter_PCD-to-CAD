@@ -4,7 +4,7 @@ function SplitLine(cc, current_line, max_point_index)
 %% Recursively Split line 
 
 %% ㄱ. Initializing
-global stats threshold_dist
+global stats threshold_dist L
 
 %% ㄴ. line AC, CB split
 
@@ -60,31 +60,67 @@ stats(cc).Line(current_line).LineList.EndPoint(2,:) = [];
 % 각각의 point와 line 거리측정용 공간 할당
 stats(cc).PixelList(:,1+2:new_line+2) = zeros(length(stats(cc).PixelList),new_line);
 
-% 모든 line에 대해 각각의 point의 거리 측정
-for i = 1 : length(stats(cc).Line)
-	A = stats(cc).Line(i).LineList.Line(1,1);
-	B = stats(cc).Line(i).LineList.Line(1,2);
-    for j = 1 : length(stats(cc).PixelList)
-        x = stats(cc).PixelList(j,1);
-        y = stats(cc).PixelList(j,2);
-        stats(cc).PixelList(j,i+2) = abs(B+A*x-y)/sqrt(1+A*A);
+connected_temp_image = L==cc;
+
+statsR = stats(cc).Line(1).LineList.EndPoint(1);
+statsC = stats(cc).Line(1).LineList.EndPoint(2);
+D11 = bwdistgeodesic(connected_temp_image, statsR,statsC);
+
+statsR = stats(cc).Line(1).LineList.EndPoint(3);
+statsC = stats(cc).Line(1).LineList.EndPoint(4);
+D12 = bwdistgeodesic(connected_temp_image, statsR,statsC);
+
+D1 = D11 + D12;
+D1 = round(D1 * 8) / 8;
+
+D1(isnan(D1)) = inf;
+paths = imregionalmin(D1);
+% figure(1)
+% imshow(paths)
+
+Path_Distance_1 = bwdistgeodesic(connected_temp_image, paths);
+
+% figure(2)
+% imshow(connected_temp_image)
+% figure(3)
+% imshow(Path_Distance_1)
+
+
+statsR = stats(cc).Line(2).LineList.EndPoint(1);
+statsC = stats(cc).Line(2).LineList.EndPoint(2);
+D11 = bwdistgeodesic(connected_temp_image, statsR,statsC);
+
+statsR = stats(cc).Line(2).LineList.EndPoint(3);
+statsC = stats(cc).Line(2).LineList.EndPoint(4);
+D12 = bwdistgeodesic(connected_temp_image, statsR,statsC);
+
+D2 = D11 + D12;
+D2 = round(D2 * 8) / 8;
+
+D2(isnan(D2)) = inf;
+paths = imregionalmin(D2);
+% figure(2)
+% imshow(paths)
+Path_Distance_2 = bwdistgeodesic(connected_temp_image, paths);
+
+Path_Map = Path_Distance_1 - Path_Distance_2;
+
+temp1 = [];
+temp2 = [];
+
+% point를 각각 선의 최단거리 path로 할당
+
+for i = 1 : length(Path_Map(:,1))
+    for j = 1 : length(Path_Map(1,:))
+        if Path_Map(i,j) > 0 && ~isnan(Path_Map(i,j))
+            temp1 = [temp1(:,:) ; i j];
+        elseif Path_Map(i,j) < 0 && ~isnan(Path_Map(i,j))
+            temp2 = [temp2(:,:) ; i j];
+        end
     end
 end
-
-% pixel들 line에 대응시키기전 임시로 할당할 3차원 배열 선언
-temp_stats = [];
-temp_stats = struct('PixelList',cell(new_line, 1));
-
-% 가장 가까운 line으로 점들 재할당
-for i = 1 : length(stats(cc).PixelList)
-        [~,min_line_index] = min(stats(cc).PixelList(i,1+2:length(stats(cc).Line)+2));
-        temp_stats(min_line_index).PixelList = cat(1,temp_stats(min_line_index).PixelList , [stats(cc).PixelList(i,1:2) stats(cc).PixelList(i, min_line_index+2)]);
-end
-
-% stats 새로운 point 추가
-for i = 1 : length(stats(cc).Line)
-    stats(cc).Line(i).PixelList = temp_stats(i).PixelList;
-end
+stats(cc).Line(current_line).PixelList = temp1;
+stats(cc).Line(new_line).PixelList = temp2;
 
 % 디버깅용 이미지
 x = stats(cc).PixelList(:,1);
