@@ -1,13 +1,14 @@
 %% Split and Merge for line 
 
 %% small home 용 이미지 파일 load
-load('SplitNMergeVariable.mat');
+% load('SplitNMergeVariable.mat');
+load('SplitNMergeVariable_j_engineering.mat');
 
-global stats threshold_dist
-cc = 2;
-threshold_dist = 10;
+global stats threshold_dist Num
+threshold_dist = 11;
 
-%% Initializing, 각 connected component 별 point, start&end point, line 할당 
+cc = 1;
+
 for i=1 : length(stats)
     stats(i).Line.PixelList = stats(i).PixelList;
 
@@ -31,30 +32,32 @@ end
 
 
 %% 2. if 가장먼거리점 거리> threshold이상 일경우 split
-for i=1 : length(stats(cc).Line.PixelList)
-    stats(cc).Line.PixelList(i,3) = abs(B+A*stats(cc).Line.PixelList(i,1)-stats(cc).Line.PixelList(i,2))/sqrt(1+A*A);
-end
-[max_dist,max_point_index] = max(stats(cc).Line.PixelList(:,3));
+% for cc = 1 : Num
+    for i=1 : length(stats(cc).Line.PixelList)
+        stats(cc).Line.PixelList(i,3) = abs(B+A*stats(cc).Line.PixelList(i,1)-stats(cc).Line.PixelList(i,2))/sqrt(1+A*A);
+    end
+    [max_dist,max_point_index] = max(stats(cc).Line.PixelList(:,3));
 
-if max_dist > threshold_dist
-    SplitLine(cc, 1, max_point_index);
-end
+    if max_dist > threshold_dist
+        SplitLine(cc, 1, max_point_index);
+    end
+% end
 
-%% debugging용 이미지
-for i=1 : length(stats)
-    x = stats(i).PixelList(:,1);
-    y = stats(i).PixelList(:,2);
-    scatter(x,y,'filled'); grid on; hold on
-end
+    %% debugging용 이미지
+    for i=1 : length(stats)
+        x = stats(i).PixelList(:,1);
+        y = stats(i).PixelList(:,2);
+        scatter(x,y,'filled'); grid on; hold on
+    end
 
-for i=1 : length(stats(cc).Line)
-   x = [stats(cc).Line(i).LineList.EndPoint(1) stats(cc).Line(i).LineList.EndPoint(3)];
-   y = [stats(cc).Line(i).LineList.EndPoint(2) stats(cc).Line(i).LineList.EndPoint(4)];
-   line('XData',x,'YData',y,'Color','r','LineWidth',3)
-   hold on
-end
-hold off
-
+    for i=1 : length(stats(cc).Line)
+       x = [stats(cc).Line(i).LineList.EndPoint(1) stats(cc).Line(i).LineList.EndPoint(3)];
+       y = [stats(cc).Line(i).LineList.EndPoint(2) stats(cc).Line(i).LineList.EndPoint(4)];
+       line('XData',x,'YData',y,'Color','r','LineWidth',3)
+       hold on
+    end
+    hold off
+    
 % scatter(x,y,'filled'); grid on; hold on
 % plot(x,B+A*x,'r','LineWidth',2);
 % 

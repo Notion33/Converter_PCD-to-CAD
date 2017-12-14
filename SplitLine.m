@@ -62,12 +62,12 @@ stats(cc).PixelList(:,1+2:new_line+2) = zeros(length(stats(cc).PixelList),new_li
 
 connected_temp_image = L==cc;
 
-statsR = stats(cc).Line(1).LineList.EndPoint(1);
-statsC = stats(cc).Line(1).LineList.EndPoint(2);
+statsR = stats(cc).Line(current_line).LineList.EndPoint(1);
+statsC = stats(cc).Line(current_line).LineList.EndPoint(2);
 D11 = bwdistgeodesic(connected_temp_image, statsR,statsC);
 
-statsR = stats(cc).Line(1).LineList.EndPoint(3);
-statsC = stats(cc).Line(1).LineList.EndPoint(4);
+statsR = stats(cc).Line(current_line).LineList.EndPoint(3);
+statsC = stats(cc).Line(current_line).LineList.EndPoint(4);
 D12 = bwdistgeodesic(connected_temp_image, statsR,statsC);
 
 D1 = D11 + D12;
@@ -86,12 +86,12 @@ Path_Distance_1 = bwdistgeodesic(connected_temp_image, paths);
 % imshow(Path_Distance_1)
 
 
-statsR = stats(cc).Line(2).LineList.EndPoint(1);
-statsC = stats(cc).Line(2).LineList.EndPoint(2);
+statsR = stats(cc).Line(new_line).LineList.EndPoint(1);
+statsC = stats(cc).Line(new_line).LineList.EndPoint(2);
 D11 = bwdistgeodesic(connected_temp_image, statsR,statsC);
 
-statsR = stats(cc).Line(2).LineList.EndPoint(3);
-statsC = stats(cc).Line(2).LineList.EndPoint(4);
+statsR = stats(cc).Line(new_line).LineList.EndPoint(3);
+statsC = stats(cc).Line(new_line).LineList.EndPoint(4);
 D12 = bwdistgeodesic(connected_temp_image, statsR,statsC);
 
 D2 = D11 + D12;
@@ -103,43 +103,60 @@ paths = imregionalmin(D2);
 % imshow(paths)
 Path_Distance_2 = bwdistgeodesic(connected_temp_image, paths);
 
-Path_Map = Path_Distance_1 - Path_Distance_2;
-
 temp1 = [];
 temp2 = [];
 
 % point를 각각 선의 최단거리 path로 할당
 
-for i = 1 : length(Path_Map(:,1))
-    for j = 1 : length(Path_Map(1,:))
-        if Path_Map(i,j) > 0 && ~isnan(Path_Map(i,j))
-            temp1 = [temp1(:,:) ; i j];
-        elseif Path_Map(i,j) < 0 && ~isnan(Path_Map(i,j))
-            temp2 = [temp2(:,:) ; i j];
+for i = 1 : length(Path_Distance_1(:,1))
+    for j = 1 : length(Path_Distance_1(1,:))
+        if Path_Distance_1(i,j) < 5 && ~isnan(Path_Distance_1(i,j))
+            temp1 = [temp1(:,:) ; j i];
+        end
+        if Path_Distance_2(i,j) < 5 && ~isnan(Path_Distance_1(i,j))
+            temp2 = [temp2(:,:) ; j i];
         end
     end
 end
+
 stats(cc).Line(current_line).PixelList = temp1;
 stats(cc).Line(new_line).PixelList = temp2;
 
 % 디버깅용 이미지
-x = stats(cc).PixelList(:,1);
-y = stats(cc).PixelList(:,2);
-scatter(x,y,'filled'); grid on; hold on
-for i=1 : length(stats(cc).Line)
-   x = [stats(cc).Line(i).LineList.EndPoint(1) stats(cc).Line(i).LineList.EndPoint(3)];
-   y = [stats(cc).Line(i).LineList.EndPoint(2) stats(cc).Line(i).LineList.EndPoint(4)];
-   line('XData',x,'YData',y)
-   hold on
-end
-hold off
+% x = stats(cc).PixelList(:,1);
+% y = stats(cc).PixelList(:,2);
+% scatter(x,y,'filled'); grid on; hold on
+% for i=1 : length(stats(cc).Line)
+%    x = [stats(cc).Line(i).LineList.EndPoint(1) stats(cc).Line(i).LineList.EndPoint(3)];
+%    y = [stats(cc).Line(i).LineList.EndPoint(2) stats(cc).Line(i).LineList.EndPoint(4)];
+%    line('XData',x,'YData',y)
+%    hold on
+% end
+% hold off
 
 % if 가장먼거리점 거리> threshold이상 일경우 recursive split
-for i = 1 : length(stats(cc).Line)
-    [max_dist,max_point_index] = max(stats(cc).Line(i).PixelList(:,3));
-    if max_dist > threshold_dist
-        SplitLine(cc, i, max_point_index);
-    end
+A = stats(cc).Line(current_line).LineList.Line(1,1);
+B = stats(cc).Line(current_line).LineList.Line(1,2);
+for i=1 : length(stats(cc).Line(current_line).PixelList)
+    x = stats(cc).Line(current_line).PixelList(i,1);
+    y = stats(cc).Line(current_line).PixelList(i,2);
+    stats(cc).Line(current_line).PixelList(i,3) = abs(B+A*x-y)/sqrt(1+A*A);
+end
+[max_dist,max_point_index] = max(stats(cc).Line(current_line).PixelList(:,3));
+if max_dist > threshold_dist
+    SplitLine(cc, current_line, max_point_index);
+end
+
+A = stats(cc).Line(new_line).LineList.Line(1,1);
+B = stats(cc).Line(new_line).LineList.Line(1,2);
+for i=1 : length(stats(cc).Line(new_line).PixelList)
+    x = stats(cc).Line(new_line).PixelList(i,1);
+    y = stats(cc).Line(new_line).PixelList(i,2);
+    stats(cc).Line(new_line).PixelList(i,3) = abs(B+A*x-y)/sqrt(1+A*A);
+end
+[max_dist,max_point_index] = max(stats(cc).Line(new_line).PixelList(:,3));
+if max_dist > threshold_dist
+    SplitLine(cc, new_line, max_point_index);
 end
 
 end

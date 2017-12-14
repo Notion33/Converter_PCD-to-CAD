@@ -14,6 +14,8 @@ clc;
 clear all;
 close all;
 
+global L
+
 Wall_Offset = 1;
 scale = 16;
 % ptCloud = pcread('j_engineering_all.pcd');
